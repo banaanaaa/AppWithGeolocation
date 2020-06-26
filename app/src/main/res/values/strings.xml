@@ -53,11 +53,20 @@
     <string name="checking_repository">There is already a point nearby. Change the settings
         if you want to put the point here</string>
 
-    // Errors
+    <!--Errors-->
     <string name="error_name_is_short">This name is short.</string>
     <string name="error_name_is_long">This name is long.</string>
     <string name="error_name_is_exist">This name is already exist.</string>
-    <string name="toast_is_short">It must be more than 8 characters long.</string>
+    <string name="toast_is_short">It must be more than 6 characters long.</string>
     <string name="toast_is_long">It must be less than 25 characters long.</string>
+    <string name="toast_is_exist">This name is already taken.</string>
+
+    <!--Another-->
+    <string name="are_u_sure">Are you sure?</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+
 </resources>
 

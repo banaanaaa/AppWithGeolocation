@@ -5,16 +5,10 @@ import android.text.InputFilter
 import android.text.InputType
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceFragmentCompat
-import androidx.preference.SeekBarPreference
 import com.banana.appwithgeolocation.R
-import com.banana.appwithgeolocation.util.FilterNumber
+import com.banana.appwithgeolocation.utils.FilterNumber
 
 class FragmentSettings : PreferenceFragmentCompat() {
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        retainInstance = true
-        super.onCreate(savedInstanceState)
-    }
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         addPreferencesFromResource(R.xml.preferences)

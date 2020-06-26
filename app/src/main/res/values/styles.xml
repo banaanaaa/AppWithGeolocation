@@ -1,4 +1,4 @@
-<resources>TODO("Not yet implemented")
+<resources>
 
     <style name="AppTheme" parent="Theme.MaterialComponents.Light.NoActionBar">
         <item name="colorPrimary">@color/colorPrimary</item>

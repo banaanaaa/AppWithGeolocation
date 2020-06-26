@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            xmlns:tools="http://schemas.android.com/tools"
+    app:startDestination="@+id/map_dest">
+    <fragment
+        android:id="@+id/map_dest"
+        android:name="com.banana.appwithgeolocation.view.FragmentMap"
+        android:label="Map"
+        tools:layout="@layout/fragment_map">
+
+        <action
+            android:id="@+id/action_map_dest_to_list_dest"
+            app:destination="@id/list_dest"
+            app:enterAnim="@anim/fragment_open_enter"
+            app:exitAnim="@anim/fragment_open_exit"
+            app:popEnterAnim="@anim/fragment_close_enter"
+            app:popExitAnim="@anim/fragment_close_exit"
+            tools:ignore="PrivateResource" />
+        <action
+            android:id="@+id/action_map_dest_to_settings_dest"
+            app:destination="@id/settings_dest"
+            app:enterAnim="@anim/fragment_open_enter"
+            app:exitAnim="@anim/fragment_open_exit"
+            app:popEnterAnim="@anim/fragment_close_enter"
+            app:popExitAnim="@anim/fragment_close_exit"
+            tools:ignore="PrivateResource" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/list_dest"
+        android:name="com.banana.appwithgeolocation.view.FragmentList"
+        android:label="List"
+        tools:layout="@layout/fragment_list">
+
+        <action
+            android:id="@+id/action_list_dest_to_settings_dest"
+            app:destination="@id/settings_dest"
+            app:enterAnim="@anim/fragment_open_enter"
+            app:exitAnim="@anim/fragment_open_exit"
+            app:popEnterAnim="@anim/fragment_close_enter"
+            app:popExitAnim="@anim/fragment_close_exit"
+            tools:ignore="PrivateResource" />
+        <action
+            android:id="@+id/action_list_dest_to_map_dest"
+            app:destination="@id/map_dest"
+            app:enterAnim="@anim/fragment_open_enter"
+            app:exitAnim="@anim/fragment_open_exit"
+            app:popEnterAnim="@anim/fragment_close_enter"
+            app:popExitAnim="@anim/fragment_close_exit"
+            tools:ignore="PrivateResource" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/settings_dest"
+        android:name="com.banana.appwithgeolocation.view.FragmentSettings"
+        android:label="Settings"
+        tools:layout="@layout/fragment_settings">
+
+        <action
+            android:id="@+id/action_settings_dest_to_list_dest"
+            app:destination="@id/list_dest"
+            app:enterAnim="@anim/fragment_open_enter"
+            app:exitAnim="@anim/fragment_open_exit"
+            app:popEnterAnim="@anim/fragment_close_enter"
+            app:popExitAnim="@anim/fragment_close_exit"
+            tools:ignore="PrivateResource" />
+        <action
+            android:id="@+id/action_settings_dest_to_map_dest"
+            app:destination="@id/map_dest"
+            app:enterAnim="@anim/fragment_open_enter"
+            app:exitAnim="@anim/fragment_open_exit"
+            app:popEnterAnim="@anim/fragment_close_enter"
+            app:popExitAnim="@anim/fragment_close_exit"
+            tools:ignore="PrivateResource" />
+    </fragment>
+</navigation>

@@ -4,42 +4,38 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.pm.PackageManager
-import android.location.Location
 import android.os.Bundle
 import android.os.Looper
-import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.LinearLayout
-import android.widget.RelativeLayout
-import androidx.core.view.marginBottom
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.preference.PreferenceManager
-import com.banana.appwithgeolocation.util.Utility
 import com.banana.appwithgeolocation.R
 import com.banana.appwithgeolocation.model.entity.Point
+import com.banana.appwithgeolocation.utils.createSimpleDialog
+import com.banana.appwithgeolocation.utils.permissionIsGranted
+import com.banana.appwithgeolocation.utils.showToast
 import com.banana.appwithgeolocation.viewmodel.MainViewModel
 import com.google.android.gms.location.*
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MarkerOptions
 import kotlinx.android.synthetic.main.dialog_input.view.*
 import kotlinx.android.synthetic.main.dialog_new_point.view.*
 import kotlinx.android.synthetic.main.fragment_map.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-@SuppressLint("MissingPermission")
 class FragmentMap : Fragment(), OnMapReadyCallback {
-
     companion object {
         private const val LOCATION_REQUEST_CODE = 3489
     }
@@ -47,126 +43,132 @@ class FragmentMap : Fragment(), OnMapReadyCallback {
     private lateinit var mViewModel: MainViewModel
 
     private lateinit var mFusedLocationClient: FusedLocationProviderClient
-    private var mMap: GoogleMap? = null
-
-    private var mLocation = Location("")
-
-    private var mPermissions: Boolean = false
-    private var mMapView: View? = null
+    private lateinit var mMap: GoogleMap
+    private var mSelected: Boolean = false
 
     private val mLocationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
-            mLocation = locationResult.lastLocation
+            mViewModel.location = locationResult.lastLocation
         }
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        retainInstance = true
-        super.onCreate(savedInstanceState)
     }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        setHasOptionsMenu(false)
         return inflater.inflate(R.layout.fragment_map, container, false)
     }
 
-    override fun onActivityCreated(savedInstanceState: Bundle?) {
-        super.onActivityCreated(savedInstanceState)
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
         mViewModel = ViewModelProvider(requireActivity()).get(MainViewModel::class.java)
-
-        requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION), LOCATION_REQUEST_CODE)
-
+        val mapFragment = childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
+        mapFragment.getMapAsync(this)
         buttonAddPosition.setOnClickListener {
-            if (mPermissions) {
+            if (checkPermissions()) {
                 if (checkDistance()) {
                     showDialog()
                 } else {
-                    Utility.showToast(requireActivity(), "Рядом уже есть точка")
+                    requireActivity().showToast("Рядом уже есть точка")
                 }
             } else {
-                Utility.showToast(requireActivity(), "Отсутствуют необходимые разрешения")
+                requireActivity().showToast("Отсутствуют необходимые разрешения")
             }
         }
     }
 
-    override fun onMapReady(googleMap: GoogleMap?) {
-        mMap = googleMap
-        mMap!!.isMyLocationEnabled = true
-        mMap!!.uiSettings.isZoomControlsEnabled = true
-        mMap!!.uiSettings.isMapToolbarEnabled = false
-
-        val orientation = requireActivity().windowManager.defaultDisplay.rotation
-        if (orientation == 1 || orientation == 3) {
-            redrawZoomButtons(true)
-        } else {
-            redrawZoomButtons(false)
-        }
-
-        mViewModel.saveMap(mMap!!)
-        mViewModel.getPoints().observe(this, Observer { list ->
-            if (list.isNotEmpty()) {
-                mViewModel.loadList(list)
-            }
-            mViewModel.getPoints().removeObservers(this)
-        })
-
-        if (!mPermissions) {
-            Utility.showToast(requireActivity(), "Отсутствуют необходимые разрешения")
+    @SuppressLint("MissingPermission")
+    override fun onMapReady(googleMap: GoogleMap) {
+        if (!checkPermissions()) {
             return
         }
-
-        GlobalScope.launch(Dispatchers.Main) {
-            requestNewLocationData()
-            delay(2000)
-            moveOnLastLocation()
+        mMap = googleMap.apply {
+            isMyLocationEnabled = true
+            uiSettings.isZoomControlsEnabled = false
+            uiSettings.isMapToolbarEnabled = false
         }
+
+        startLocationTracking()
+
+        mViewModel.points.observe(this, Observer { list ->
+            mMap.clear()
+            list.forEach { addMarker(it) }
+        })
+        mViewModel.selectedPoint.observe(this, Observer { selected ->
+            mMap.clear()
+            mViewModel.points.value?.forEach { point ->
+                addMarker(point, point == selected)
+            }
+        })
+    }
+
+    private fun addMarker(point: Point, selected: Boolean = false) {
+        mMap.addMarker(
+            MarkerOptions()
+                    .position(LatLng(point.latitude, point.longitude))
+                    .title(point.name)
+        ).setIcon(BitmapDescriptorFactory.defaultMarker(
+            if (selected) BitmapDescriptorFactory.HUE_BLUE else BitmapDescriptorFactory.HUE_RED
+        ))
+        if (selected) {
+            moveCameraOnPoint(point)
+        }
+    }
+
+    private fun checkPermissions(): Boolean {
+        if (!Manifest.permission.ACCESS_FINE_LOCATION.permissionIsGranted(requireContext())
+            || !Manifest.permission.ACCESS_COARSE_LOCATION.permissionIsGranted(requireContext())) {
+            requestPermissions(arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ), LOCATION_REQUEST_CODE)
+            return false
+        }
+        return true
     }
 
     private fun checkDistance(): Boolean {
         val settings = PreferenceManager.getDefaultSharedPreferences(requireActivity())
         val accuracy = settings.getInt("accuracy", 100)
-
-        requestNewLocationData()
-
-        return mViewModel.checkDistance(accuracy, mLocation)
+        return mViewModel.checkDistance(accuracy)
     }
 
     @SuppressLint("InflateParams")
     private fun showDialog() {
-        requestNewLocationData()
-
         val dialogLayout = layoutInflater.inflate(R.layout.dialog_new_point, null)
         val name = dialogLayout.name_edittext.text
         val layout = dialogLayout.input_layout
 
-        dialogLayout.latitude_textview.text = getString(R.string.dialog_new_point_latitude)
-                .format(mLocation.latitude)
-        dialogLayout.longitude_textview.text = getString(R.string.dialog_new_point_longitude)
-                .format(mLocation.longitude)
+        dialogLayout.latitude_textview.text = getString(R.string.dialog_new_point_latitude,
+            mViewModel.location.latitude)
+        dialogLayout.longitude_textview.text = getString(R.string.dialog_new_point_longitude,
+            mViewModel.location.longitude)
 
-        val dialog = Utility.createDialog(
-            requireActivity(),
-            getString(R.string.dialog_new_point_title), dialogLayout
-        )
+        val dialog = requireActivity()
+                .createSimpleDialog(getString(R.string.dialog_new_point_title),
+                                    dialogLayout,
+                                    getString(R.string.ok),
+                                    getString(R.string.cancel))
 
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val point = Point(name.toString(), mLocation.latitude, mLocation.longitude)
+                val point = Point(
+                    name.toString(),
+                    mViewModel.location.latitude,
+                    mViewModel.location.longitude
+                )
                 when (mViewModel.addPoint(point)) {
                     MainViewModel.NameValidationResult.TOO_SHORT -> {
                         layout.error = getString(R.string.error_name_is_short)
-                        Utility.showToast(requireActivity(), getString(R.string.toast_is_short))
+                        requireActivity().showToast(getString(R.string.toast_is_short))
                     }
                     MainViewModel.NameValidationResult.TOO_LONG -> {
                         layout.error = getString(R.string.error_name_is_long)
-                        Utility.showToast(requireActivity(), getString(R.string.toast_is_long))
+                        requireActivity().showToast(getString(R.string.toast_is_long))
                     }
                     MainViewModel.NameValidationResult.ALREADY_EXISTS -> {
-                        // будет скоро
+                        layout.error = getString(R.string.error_name_is_exist)
+                        requireActivity().showToast(getString(R.string.toast_is_exist))
                     }
                     MainViewModel.NameValidationResult.SUCCESS -> {
                         dialog.dismiss()
@@ -181,80 +183,74 @@ class FragmentMap : Fragment(), OnMapReadyCallback {
         dialog.show()
     }
 
-    private fun moveCameraOnLocation(latitude: Double, longitude: Double) {
-        mMap!!.moveCamera(CameraUpdateFactory
-                .newCameraPosition(CameraPosition.Builder()
-                        .target(LatLng(latitude, longitude))
-                        .zoom(16f).build()))
+    private fun moveCameraOnPoint(point: Point) {
+        moveCameraOnLocation(point.latitude, point.longitude)
+        mSelected = true
     }
 
+    private fun moveCameraOnLocation(latitude: Double, longitude: Double) {
+        mMap.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder()
+                .target(LatLng(latitude, longitude))
+                .zoom(15f).build()))
+    }
+
+    @SuppressLint("MissingPermission")
     private fun moveOnLastLocation() {
         if (activity != null) {
-            mFusedLocationClient.lastLocation.addOnCompleteListener(requireActivity()) {
-                val location: Location? = it.result
-                if (location != null) {
-                    GlobalScope.launch(Dispatchers.Main) {
-                        moveCameraOnLocation(mLocation.latitude, mLocation.longitude)
+            if (checkPermissions()) {
+                mFusedLocationClient.lastLocation.addOnCompleteListener(requireActivity()) {
+                    if (it.result != null && !mSelected) {
+                        moveCameraOnLocation(it.result!!.latitude, it.result!!.longitude)
+                    } else {
+                        moveOnLastLocation()
                     }
-                } else {
-                    moveOnLastLocation()
                 }
             }
         }
     }
 
-    private fun requestNewLocationData() {
-        val mLocationRequest = LocationRequest()
-        mLocationRequest.priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-        mLocationRequest.interval = 0
-        mLocationRequest.fastestInterval = 0
-        mLocationRequest.numUpdates = 1
-
-        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
-        mFusedLocationClient.requestLocationUpdates(
-            mLocationRequest, mLocationCallback, Looper.myLooper()
-        )
+    override fun onResume() {
+        super.onResume()
+        if (!mSelected) {
+            startLocationTracking()
+            moveOnLastLocation()
+        }
     }
 
-    private fun redrawZoomButtons(landscape: Boolean) {
-        val zoom = mMapView?.findViewWithTag<View>("GoogleMapZoomOutButton")!!.parent as LinearLayout
-        val param = RelativeLayout.LayoutParams(
-            RelativeLayout.LayoutParams.WRAP_CONTENT,
-            RelativeLayout.LayoutParams.WRAP_CONTENT
-        )
-        if (landscape) {
-            param.addRule(RelativeLayout.ALIGN_PARENT_LEFT)
-            param.setMargins(26, 0, 0, 0)
-        } else {
-            param.addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
-            param.setMargins(0, 0, 26, 0)
+    override fun onPause() {
+        super.onPause()
+        mFusedLocationClient.removeLocationUpdates(mLocationCallback)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startLocationTracking() {
+        val mLocationRequest = LocationRequest().apply {
+            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+            interval = 0
+            fastestInterval = 0
+            numUpdates = 1
         }
-
-        zoom.layoutParams = param
-        zoom.gravity = Gravity.CENTER_VERTICAL
-
-        zoom.layoutParams.height = (mMapView!!.parent as View).height - zoom.marginBottom * 2
+        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
+        if (checkPermissions()) {
+            mFusedLocationClient.requestLocationUpdates(
+                mLocationRequest, mLocationCallback, Looper.myLooper()
+            )
+        }
     }
 
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
-        permissions: Array<out String>,
+        permissions: Array<String>,
         grantResults: IntArray
     ) {
         if (requestCode == LOCATION_REQUEST_CODE) {
             if (grantResults[0] == PackageManager.PERMISSION_GRANTED
-                    || grantResults[1] == PackageManager.PERMISSION_GRANTED) {
-                val mMapFragment = childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment?
-                mMapFragment?.getMapAsync(this)
-                mMapView = mMapFragment?.view
-                mFusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
-                mPermissions = true
+                || grantResults[1] == PackageManager.PERMISSION_GRANTED) {
+                startLocationTracking()
             } else {
-                Utility.showToast(requireActivity(), "Ошибка получения разрешений")
+                requireActivity().showToast("Разрешения не получены")
             }
         }
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 }
-

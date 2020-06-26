@@ -1,4 +1,4 @@
-package com.banana.appwithgeolocation.util
+package com.banana.appwithgeolocation.utils
 
 import android.text.InputFilter
 import android.text.Spanned

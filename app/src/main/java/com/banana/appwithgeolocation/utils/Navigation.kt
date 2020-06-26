@@ -1,4 +1,4 @@
-package com.banana.appwithgeolocation.util
+package com.banana.appwithgeolocation.utils
 
 import android.content.Context
 import androidx.fragment.app.Fragment
@@ -19,6 +19,7 @@ class Navigation : LifecycleObserver {
     private var mContext: Context? = null
     private var mFragments = HashMap<Int, Fragment>()
     private var mNames = HashMap<Int, String>()
+    private var mOldNames = HashMap<Int, String>()
     private var mHomeFragmentId: Int? = null
     private var mFragmentManager: FragmentManager? = null
     private var mContainer: Int? = null
@@ -65,7 +66,7 @@ class Navigation : LifecycleObserver {
         }
     }
 
-    fun showFragmentById(id: Int) {
+    private fun showFragmentById(id: Int) {
         if (mFragmentManager == null) {
             return
         }
@@ -75,18 +76,15 @@ class Navigation : LifecycleObserver {
         val transaction = mFragmentManager!!.beginTransaction()
         if (mActiveFragment != null) {
             transaction.hide(mActiveFragment!!)
-            mActiveFragment!!.onStop()
         }
         if (mFragmentManager!!.findFragmentByTag("bottom#$id") == null) {
             createFragmentById(id)
             transaction.add(mContainer!!, mFragments[id]!!, "bottom#$id")
         } else {
             transaction.show(mFragments[id]!!)
-            mFragments[id]!!.onStart()
         }
         mActiveFragment = mFragments[id]
         mActiveId = id
-        setSelectedItem()
         transaction.commit()
     }
 
@@ -104,7 +102,7 @@ class Navigation : LifecycleObserver {
             } else {
                 mBackStack.last()
             }
-            showFragmentById(id)
+            setSelectedItem(id)
             return false
         }
         return true
@@ -117,26 +115,42 @@ class Navigation : LifecycleObserver {
         mBackStack.add(id)
     }
 
-    private fun setSelectedItem() {
-        mBottomNavigation.selectedItemId = mActiveId as Int
+    fun setSelectedItem(id: Int) {
+        mBottomNavigation.selectedItemId = id
     }
 
     @OnLifecycleEvent(Lifecycle.Event.ON_START)
     fun onStart() {
+        if (mOldNames.isNotEmpty()) {
+            val tmpBack = mBackStack
+            mBackStack.forEach { back ->
+                mNames.forEach { new ->
+                    if (mOldNames[back] == new.value) {
+                        tmpBack.add(new.key)
+                        createFragmentById(new.key)
+                        mFragmentManager!!
+                            .beginTransaction()
+                            .add(mContainer!!, mFragments[new.key]!!, "bottom#${new.key}")
+                            .hide(mFragments[new.key]!!)
+                            .commit()
+                        mActiveId = new.key
+                    }
+                }
+            }
+            mBackStack = tmpBack
+            mActiveFragment = mFragments[mBackStack.last()]
+            setSelectedItem(mActiveId as Int)
+        }
         if (mActiveFragment == null) {
-            showFragmentById(mHomeFragmentId!!)
+            setSelectedItem(mHomeFragmentId!!)
             addToBackStack(mHomeFragmentId!!)
         }
     }
 
     @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
     fun onDestroy() {
-        Utility.showToast(mContext!!, "Destroy")
+        mOldNames = mNames
+        mActiveFragment = null
         mFragmentManager = null
-    }
-
-    @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
-    fun onCreate() {
-
     }
 }

@@ -7,25 +7,20 @@ import android.view.*
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.banana.appwithgeolocation.viewmodel.MainViewModel
 import com.banana.appwithgeolocation.R
 import com.banana.appwithgeolocation.adapter.PointListAdapter
 import com.banana.appwithgeolocation.model.entity.Point
-import com.banana.appwithgeolocation.util.Navigation
-import com.banana.appwithgeolocation.util.Utility
+import com.banana.appwithgeolocation.utils.createSimpleDialog
+import com.banana.appwithgeolocation.utils.showToast
 import kotlinx.android.synthetic.main.dialog_input.view.*
 import kotlinx.android.synthetic.main.fragment_list.*
 
 class FragmentList : Fragment() {
 
     private lateinit var mViewModel: MainViewModel
-    private var mSelected = false
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        retainInstance = true
-        super.onCreate(savedInstanceState)
-    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -39,33 +34,38 @@ class FragmentList : Fragment() {
         super.onActivityCreated(savedInstanceState)
         mViewModel = ViewModelProvider(requireActivity()).get(MainViewModel::class.java)
 
-        val adapter =
-            PointListAdapter(object :
-                Listener {
-                override fun click(point: Point) {
-                    mViewModel.selectMarker(point)
-                    mSelected = true
-                    Navigation.getNavigation().showFragmentById(R.id.map_dest)
-                    Navigation.getNavigation().addToBackStack(R.id.map_dest)
-                }
-
-                override fun rename(point: Point) {
-                    showDialog(point)
-                }
-
-                override fun delete(point: Point) {
-                    mViewModel.deletePoint(point)
-                    mViewModel.deleteMarker(point)
-                }
-            })
-
-        mViewModel.getPoints().observe(viewLifecycleOwner, Observer { live ->
-            live.let { list -> adapter.setPoints(list) }
-        })
-
+        val adapter = createPointListAdapter()
         recyclerview.adapter = adapter
         recyclerview.layoutManager = LinearLayoutManager(context)
+
+        mViewModel.points.observe(viewLifecycleOwner, Observer { live ->
+            live.let { adapter.notifyDataSetChanged() }
+        })
     }
+
+    private fun createPointListAdapter() = PointListAdapter(
+        mViewModel.points, object : Listener {
+            override fun click(point: Point) {
+                mViewModel.selectMarker(point)
+                findNavController().navigate(R.id.map_dest)
+            }
+
+            override fun rename(point: Point) {
+                showDialog(point)
+            }
+
+            override fun delete(point: Point) {
+                val dialog = showSureDialog()
+                dialog.setOnShowListener {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                        mViewModel.deletePoint(point)
+                        dialog.dismiss()
+                    }
+                }
+                dialog.show()
+            }
+        }
+    )
 
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
         inflater.inflate(R.menu.list_menu, menu)
@@ -74,10 +74,27 @@ class FragmentList : Fragment() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == R.id.nav_delete) {
-            mViewModel.deletePoints()
-            mViewModel.deleteMarkers()
+            val dialog = showSureDialog()
+            dialog.setOnShowListener {
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                    mViewModel.deletePoints()
+                    dialog.dismiss()
+                }
+            }
+            dialog.show()
         }
         return super.onOptionsItemSelected(item)
+    }
+
+    @SuppressLint("InflateParams")
+    fun showSureDialog() : AlertDialog {
+        val dialogLayout = layoutInflater.inflate(R.layout.dialog_sure, null)
+
+        return requireActivity()
+            .createSimpleDialog("",
+                                dialogLayout,
+                                getString(R.string.yes),
+                                getString(R.string.no))
     }
 
     @SuppressLint("InflateParams")
@@ -86,24 +103,26 @@ class FragmentList : Fragment() {
         val name = dialogLayout.name_edittext.text
         val layout = dialogLayout.input_layout
 
-        val dialog = Utility.createDialog(
-            requireActivity(),
-            getString(R.string.dialog_rename_point_tittle), dialogLayout
-        )
+        val dialog = requireActivity()
+                .createSimpleDialog(getString(R.string.dialog_rename_point_tittle),
+                                    dialogLayout,
+                                    getString(R.string.ok),
+                                    getString(R.string.cancel))
 
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 when (mViewModel.renamePoint(point, name.toString())) {
                     MainViewModel.NameValidationResult.TOO_SHORT -> {
                         layout.error = getString(R.string.error_name_is_short)
-                        Utility.showToast(requireActivity(), getString(R.string.toast_is_short))
+                        requireActivity().showToast(getString(R.string.toast_is_short))
                     }
                     MainViewModel.NameValidationResult.TOO_LONG -> {
                         layout.error = getString(R.string.error_name_is_long)
-                        Utility.showToast(requireActivity(), getString(R.string.toast_is_long))
+                        requireActivity().showToast(getString(R.string.toast_is_long))
                     }
                     MainViewModel.NameValidationResult.ALREADY_EXISTS -> {
-                        // будет скоро
+                        layout.error = getString(R.string.error_name_is_exist)
+                        requireActivity().showToast(getString(R.string.toast_is_exist))
                     }
                     MainViewModel.NameValidationResult.SUCCESS -> {
                         dialog.dismiss()
@@ -113,13 +132,6 @@ class FragmentList : Fragment() {
         }
 
         dialog.show()
-    }
-
-    override fun onStart() {
-        if (mSelected) {
-            mViewModel.returnIcon()
-        }
-        super.onStart()
     }
 
 
