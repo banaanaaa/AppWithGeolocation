@@ -68,5 +68,8 @@
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
 
+    <string name="summary_sample">Accuracy of the geolocation tracking service (minutes)</string>
+    <string name="summary_accuracy">Survey frequency of the geolocation tracking service (metres)</string>
+
 </resources>
 

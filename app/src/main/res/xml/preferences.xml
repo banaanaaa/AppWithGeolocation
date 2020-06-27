@@ -1,22 +1,24 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <!--    <EditTextPreference-->
-    <!--        android:defaultValue="100"-->
-    <!--        app:key="accuracy"-->
-    <!--        app:title="@string/title_accuracy"-->
-    <!--        app:useSimpleSummaryProvider="true" />-->
-
-    <EditTextPreference
-        android:defaultValue="1"
-        android:inputType="numberDecimal"
-        app:key="sample_rate"
-        app:title="@string/title_sample_rate"
-        app:useSimpleSummaryProvider="true" />
+    xmlns:android="http://schemas.android.com/apk/res/android" >
 
     <SeekBarPreference
-        android:defaultValue="100"
+        app:defaultValue="5"
+        app:iconSpaceReserved="false"
+        app:min="1"
+        android:max="30"
+        app:key="sample_rate"
+        app:showSeekBarValue="true"
+        app:title="@string/title_sample_rate"
+        app:summary="@string/summary_sample" />
+
+    <SeekBarPreference
+        app:defaultValue="100"
+        app:iconSpaceReserved="false"
+        app:min="10"
+        android:max="500"
         app:key="accuracy"
-        app:title="@string/title_accuracy" />
+        app:showSeekBarValue="true"
+        app:title="@string/title_accuracy"
+        app:summary="@string/summary_accuracy" />
 
 </PreferenceScreen>
