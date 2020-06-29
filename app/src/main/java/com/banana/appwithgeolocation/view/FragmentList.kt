@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.os.Bundle
 import android.view.*
+import android.widget.LinearLayout
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
@@ -56,6 +57,7 @@ class FragmentList : Fragment() {
 
             override fun delete(point: Point) {
                 val dialog = showSureDialog()
+                dialog.setMessage(getString(R.string.delete_point))
                 dialog.setOnShowListener {
                     dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                         mViewModel.deletePoint(point)
@@ -75,6 +77,7 @@ class FragmentList : Fragment() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == R.id.nav_delete) {
             val dialog = showSureDialog()
+            dialog.setMessage(getString(R.string.delete_points))
             dialog.setOnShowListener {
                 dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                     mViewModel.deletePoints()
@@ -87,12 +90,17 @@ class FragmentList : Fragment() {
     }
 
     @SuppressLint("InflateParams")
-    fun showSureDialog() : AlertDialog {
-        val dialogLayout = layoutInflater.inflate(R.layout.dialog_sure, null)
+    fun showSureDialog(): AlertDialog {
+        val layout = LinearLayout(requireContext())
+        val layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        layoutParams.gravity = Gravity.CENTER
+        layout.layoutParams = layoutParams
 
         return requireActivity()
-            .createSimpleDialog("",
-                                dialogLayout,
+            .createSimpleDialog(getString(R.string.are_u_sure),
+                                layout,
                                 getString(R.string.yes),
                                 getString(R.string.no))
     }

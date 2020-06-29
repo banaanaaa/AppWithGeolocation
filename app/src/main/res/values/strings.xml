@@ -67,6 +67,8 @@
     <string name="no">No</string>
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
+    <string name="delete_point">Do you want to delete point?</string>
+    <string name="delete_points">Do you want to delete points?</string>
 
     <string name="summary_sample">Accuracy of the geolocation tracking service (minutes)</string>
     <string name="summary_accuracy">Survey frequency of the geolocation tracking service (metres)</string>

@@ -83,6 +83,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _selectedPoint.value = point
     }
 
+    fun selectMarker(name: String) {
+        _points.value?.forEach { point ->
+            if (point.name == name) {
+                _selectedPoint.value = point
+            }
+        }
+    }
+
     fun checkDistance(accuracy: Int) : Boolean {
         _points.value?.forEach { point ->
             if (location.distanceTo(point.getLocation()) <= accuracy) {

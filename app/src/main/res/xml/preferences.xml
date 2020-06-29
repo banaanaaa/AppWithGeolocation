@@ -6,7 +6,7 @@
         app:iconSpaceReserved="false"
         app:min="1"
         android:max="30"
-        app:key="sample_rate"
+        app:key="appwithgeolocation.settings.SAMPLE_RATE"
         app:showSeekBarValue="true"
         app:title="@string/title_sample_rate"
         app:summary="@string/summary_sample" />
@@ -16,7 +16,7 @@
         app:iconSpaceReserved="false"
         app:min="10"
         android:max="500"
-        app:key="accuracy"
+        app:key="appwithgeolocation.settings.ACCURACY"
         app:showSeekBarValue="true"
         app:title="@string/title_accuracy"
         app:summary="@string/summary_accuracy" />

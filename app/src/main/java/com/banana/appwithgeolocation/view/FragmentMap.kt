@@ -1,11 +1,8 @@
 package com.banana.appwithgeolocation.view
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.app.AlertDialog
-import android.content.pm.PackageManager
 import android.os.Bundle
-import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,10 +13,8 @@ import androidx.preference.PreferenceManager
 import com.banana.appwithgeolocation.R
 import com.banana.appwithgeolocation.model.entity.Point
 import com.banana.appwithgeolocation.utils.createSimpleDialog
-import com.banana.appwithgeolocation.utils.permissionIsGranted
 import com.banana.appwithgeolocation.utils.showToast
 import com.banana.appwithgeolocation.viewmodel.MainViewModel
-import com.google.android.gms.location.*
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -36,21 +31,10 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
 class FragmentMap : Fragment(), OnMapReadyCallback {
-    companion object {
-        private const val LOCATION_REQUEST_CODE = 3489
-    }
 
     private lateinit var mViewModel: MainViewModel
-
-    private lateinit var mFusedLocationClient: FusedLocationProviderClient
     private lateinit var mMap: GoogleMap
     private var mSelected: Boolean = false
-
-    private val mLocationCallback = object : LocationCallback() {
-        override fun onLocationResult(locationResult: LocationResult) {
-            mViewModel.location = locationResult.lastLocation
-        }
-    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -65,30 +49,21 @@ class FragmentMap : Fragment(), OnMapReadyCallback {
         val mapFragment = childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
         buttonAddPosition.setOnClickListener {
-            if (checkPermissions()) {
-                if (checkDistance()) {
-                    showDialog()
-                } else {
-                    requireActivity().showToast("Рядом уже есть точка")
-                }
+            if (checkDistance()) {
+                showDialog()
             } else {
-                requireActivity().showToast("Отсутствуют необходимые разрешения")
+                requireActivity().showToast("Рядом уже есть точка")
             }
         }
     }
 
     @SuppressLint("MissingPermission")
     override fun onMapReady(googleMap: GoogleMap) {
-        if (!checkPermissions()) {
-            return
-        }
         mMap = googleMap.apply {
             isMyLocationEnabled = true
             uiSettings.isZoomControlsEnabled = false
             uiSettings.isMapToolbarEnabled = false
         }
-
-        startLocationTracking()
 
         mViewModel.points.observe(this, Observer { list ->
             mMap.clear()
@@ -100,6 +75,8 @@ class FragmentMap : Fragment(), OnMapReadyCallback {
                 addMarker(point, point == selected)
             }
         })
+
+        moveOnLastLocation()
     }
 
     private fun addMarker(point: Point, selected: Boolean = false) {
@@ -115,21 +92,9 @@ class FragmentMap : Fragment(), OnMapReadyCallback {
         }
     }
 
-    private fun checkPermissions(): Boolean {
-        if (!Manifest.permission.ACCESS_FINE_LOCATION.permissionIsGranted(requireContext())
-            || !Manifest.permission.ACCESS_COARSE_LOCATION.permissionIsGranted(requireContext())) {
-            requestPermissions(arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            ), LOCATION_REQUEST_CODE)
-            return false
-        }
-        return true
-    }
-
     private fun checkDistance(): Boolean {
         val settings = PreferenceManager.getDefaultSharedPreferences(requireActivity())
-        val accuracy = settings.getInt("accuracy", 100)
+        val accuracy = settings.getInt("appwithgeolocation.settings.ACCURACY", 100)
         return mViewModel.checkDistance(accuracy)
     }
 
@@ -194,62 +159,13 @@ class FragmentMap : Fragment(), OnMapReadyCallback {
                 .zoom(15f).build()))
     }
 
-    @SuppressLint("MissingPermission")
     private fun moveOnLastLocation() {
         if (activity != null) {
-            if (checkPermissions()) {
-                mFusedLocationClient.lastLocation.addOnCompleteListener(requireActivity()) {
-                    if (it.result != null && !mSelected) {
-                        moveCameraOnLocation(it.result!!.latitude, it.result!!.longitude)
-                    } else {
-                        moveOnLastLocation()
-                    }
+            val location = mViewModel.location
+            if (location.latitude != 707.0 && location.longitude != 707.0) {
+                if (!mSelected) {
+                    moveCameraOnLocation(location.latitude, location.longitude)
                 }
-            }
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        if (!mSelected) {
-            startLocationTracking()
-            moveOnLastLocation()
-        }
-    }
-
-    override fun onPause() {
-        super.onPause()
-        mFusedLocationClient.removeLocationUpdates(mLocationCallback)
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun startLocationTracking() {
-        val mLocationRequest = LocationRequest().apply {
-            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-            interval = 0
-            fastestInterval = 0
-            numUpdates = 1
-        }
-        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
-        if (checkPermissions()) {
-            mFusedLocationClient.requestLocationUpdates(
-                mLocationRequest, mLocationCallback, Looper.myLooper()
-            )
-        }
-    }
-
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    ) {
-        if (requestCode == LOCATION_REQUEST_CODE) {
-            if (grantResults[0] == PackageManager.PERMISSION_GRANTED
-                || grantResults[1] == PackageManager.PERMISSION_GRANTED) {
-                startLocationTracking()
-            } else {
-                requireActivity().showToast("Разрешения не получены")
             }
         }
     }

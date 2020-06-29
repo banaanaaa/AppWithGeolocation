@@ -16,7 +16,7 @@ fun Context.createSimpleDialog(
     view: View,
     textPositive: String,
     textNegative: String
-) = AlertDialog.Builder(this).apply {
+): AlertDialog = AlertDialog.Builder(this).apply {
     setTitle(title)
     setView(view)
     setPositiveButton(textPositive, null)
@@ -25,3 +25,4 @@ fun Context.createSimpleDialog(
 
 fun String.permissionIsGranted(context: Context): Boolean
         = ActivityCompat.checkSelfPermission(context, this) == PackageManager.PERMISSION_GRANTED
+
