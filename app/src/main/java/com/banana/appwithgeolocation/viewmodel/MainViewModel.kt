@@ -14,18 +14,16 @@ import kotlinx.coroutines.launch
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository: Repository = Repository(
-        PointRoomDatabase.getDatabase(application).pointDao()
-    )
+    private val repository: Repository = Repository(PointRoomDatabase.getDatabase(application).pointDao())
     private var _points: LiveData<List<Point>> = repository.getPoints()
-    private var _selectedPoint: MutableLiveData<Point> = MutableLiveData(Point())
+    private var _selectedPointName: MutableLiveData<String> = MutableLiveData()
     var location: Location = Location("")
 
     val points: LiveData<List<Point>>
         get() = _points
 
-    val selectedPoint: LiveData<Point>
-        get() = _selectedPoint
+    val selectedPointName: LiveData<String>
+        get() = _selectedPointName
 
     private fun insertPoint(point: Point) = viewModelScope.launch(IO) {
         repository.insertPoint(point)
@@ -43,59 +41,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         repository.deletePoints()
     }
 
-    fun addPoint(point: Point): NameValidationResult {
-        val result = checkPointName(point.name)
-        if (result == NameValidationResult.SUCCESS) {
-            insertPoint(point)
-        }
-        return result
+    fun addPoint(point: Point) = checkPointName(point.name).apply {
+        if (this == NameValidationResult.SUCCESS) insertPoint(point)
     }
 
-    fun renamePoint(point: Point, name: String): NameValidationResult {
-        val result = checkPointName(name)
-        if (result == NameValidationResult.SUCCESS) {
+    fun renamePoint(point: Point, name: String) = checkPointName(name).apply {
+        if (this == NameValidationResult.SUCCESS) {
             point.name = name
             updatePoint(point)
         }
-        return result
     }
 
     private fun checkPointName(name: String): NameValidationResult {
         return when (name.length) {
-            in 0..5 -> {
-                NameValidationResult.TOO_SHORT
-            }
+            in 0..5  -> NameValidationResult.TOO_SHORT
             in 6..25 -> {
                 _points.value?.forEach { point ->
-                    if (point.name == name) {
-                        return NameValidationResult.ALREADY_EXISTS
-                    }
+                    if (point.name == name) { return NameValidationResult.ALREADY_EXISTS }
                 }
                 NameValidationResult.SUCCESS
             }
-            else -> {
-                NameValidationResult.TOO_LONG
-            }
+            else -> NameValidationResult.TOO_LONG
         }
-    }
-
-    fun selectMarker(point: Point) {
-        _selectedPoint.value = point
     }
 
     fun selectMarker(name: String) {
-        _points.value?.forEach { point ->
-            if (point.name == name) {
-                _selectedPoint.value = point
-            }
-        }
+        _selectedPointName.value = name
     }
 
     fun checkDistance(accuracy: Int) : Boolean {
         _points.value?.forEach { point ->
-            if (location.distanceTo(point.getLocation()) <= accuracy) {
-                return false
-            }
+            if (location.distanceTo(point.getLocation()) <= accuracy) { return false }
         }
         return true
     }

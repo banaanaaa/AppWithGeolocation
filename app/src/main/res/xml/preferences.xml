@@ -6,7 +6,7 @@
         app:iconSpaceReserved="false"
         app:min="1"
         android:max="30"
-        app:key="appwithgeolocation.settings.SAMPLE_RATE"
+        app:key="com.appwithgeolocation.settings.SAMPLE_RATE"
         app:showSeekBarValue="true"
         app:title="@string/title_sample_rate"
         app:summary="@string/summary_sample" />
@@ -16,9 +16,17 @@
         app:iconSpaceReserved="false"
         app:min="10"
         android:max="500"
-        app:key="appwithgeolocation.settings.ACCURACY"
+        app:key="com.appwithgeolocation.settings.ACCURACY"
         app:showSeekBarValue="true"
         app:title="@string/title_accuracy"
         app:summary="@string/summary_accuracy" />
+
+    <SwitchPreference
+        app:defaultValue="false"
+        app:iconSpaceReserved="false"
+        app:key="com.appwithgeolocation.settings.SERVICE_SWITCH"
+        app:title="@string/title_service_switch"
+        app:summaryOff="@string/summary_service_switchOn"
+        app:summaryOn="@string/summary_service_switchOff" />
 
 </PreferenceScreen>

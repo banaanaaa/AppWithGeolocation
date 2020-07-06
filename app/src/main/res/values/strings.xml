@@ -38,10 +38,12 @@
     <!--Settings-->
     <string name="title_accuracy">Accuracy</string>
     <string name="title_sample_rate">Sample rate</string>
-    <string name="desc_accuracy">Set accuracy of geolocation tracking.</string>
-    <string name="desc_sample_rate">Set the frequency of service surveys.</string>
-    <string name="key_accuracy">KEY_ACCURACY</string>
-    <string name="key_frequency">KEY_FREQUENCY</string>
+    <string name="title_service_switch">Location service</string>
+    <string name="summary_sample">Accuracy of the geolocation tracking service (minutes)</string>
+    <string name="summary_accuracy">Survey frequency of the geolocation tracking service (metres)</string>
+    <string name="summary_service_switchOn">Enable the geolocation service.</string>
+    <string name="summary_service_switchOff">Disable the geolocation service.</string>
+
     <!-- Preference Titles -->
     <string name="messages_header">Messages</string>
     <string name="sync_header">Sync</string>
@@ -69,9 +71,6 @@
     <string name="cancel">Cancel</string>
     <string name="delete_point">Do you want to delete point?</string>
     <string name="delete_points">Do you want to delete points?</string>
-
-    <string name="summary_sample">Accuracy of the geolocation tracking service (minutes)</string>
-    <string name="summary_accuracy">Survey frequency of the geolocation tracking service (metres)</string>
 
 </resources>
 
