@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layout xmlns:android="http://schemas.android.com/apk/res/android"
+<layout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <data>
@@ -16,61 +17,67 @@
         android:layout_height="wrap_content"
         android:clickable="true"
         android:onClick="@{() -> listener.click(point)}"
-        android:paddingBottom="@dimen/spacing_small">
+        android:paddingTop="@dimen/spacing_small">
+
+        <TextView
+            android:id="@+id/name_textView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/point_item_title"
+            android:gravity="center_horizontal"
+            android:text="@{point.name}"
+            android:textSize="@dimen/text_size_large"
+            android:textColor="@android:color/black"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
         <LinearLayout
             android:id="@+id/fields"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:background="@drawable/point_item_desc"
             android:orientation="vertical"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent">
-
-            <TextView
-                android:id="@+id/name_textView"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@{@string/item_name + `: ` + point.name}" />
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/name_textView" >
 
             <TextView
                 android:id="@+id/latitude_textView"
+                style="@style/TextViewStylePointItem"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@{@string/item_latitude + `: ` + point.latitude}" />
+                android:text="@{@string/point_item_longitude + `: ` + String.format(`%.5f`,point.latitude).replace(`,`,`.`)}" />
 
             <TextView
                 android:id="@+id/longitude_textView"
+                style="@style/TextViewStylePointItem"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@{@string/item_longitude + `: ` + point.longitude}" />
-
+                android:text="@{@string/point_item_latitude + `: ` + String.format(`%.5f`,point.longitude).replace(`,`,`.`)}" />
         </LinearLayout>
 
-        <ImageButton
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/button_edit"
-            style="@style/button_style"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@drawable/ic_edit"
-            android:text="@string/button_edit"
-            android:contentDescription="@string/button_delete"
-            app:layout_constraintBottom_toBottomOf="@+id/fields"
+            style="@style/ButtonStylePointItem"
+            android:onClick="@{() -> listener.rename(point)}"
+            app:icon="@drawable/ic_edit"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:backgroundTint="@color/colorAccent"
+            app:layout_constraintBottom_toBottomOf="@id/fields"
             app:layout_constraintEnd_toStartOf="@id/button_delete"
-            app:layout_constraintTop_toTopOf="@id/fields"
-            android:onClick="@{() -> listener.rename(point)}" />
+            app:layout_constraintTop_toTopOf="@id/fields" />
 
-        <ImageButton
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/button_delete"
-            style="@style/button_style"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/button_delete"
-            android:contentDescription="@string/button_delete"
-            android:src="@drawable/ic_clear"
-            app:layout_constraintTop_toTopOf="@id/button_edit"
+            style="@style/ButtonStylePointItem"
+            android:onClick="@{() -> listener.delete(point)}"
+            app:icon="@drawable/ic_clear"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:backgroundTint="@color/colorPrimaryDark"
             app:layout_constraintBottom_toBottomOf="@id/button_edit"
             app:layout_constraintEnd_toEndOf="parent"
-            android:onClick="@{() -> listener.delete(point)}" />
-
+            app:layout_constraintTop_toTopOf="@id/button_edit" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>

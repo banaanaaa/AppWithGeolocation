@@ -69,7 +69,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _selectedPointName.value = name
     }
 
-    fun checkDistance(accuracy: Int) : Boolean {
+    fun checkDistance(accuracy: Int, location: Location = this.location) : Boolean {
         _points.value?.forEach { point ->
             if (location.distanceTo(point.getLocation()) <= accuracy) { return false }
         }

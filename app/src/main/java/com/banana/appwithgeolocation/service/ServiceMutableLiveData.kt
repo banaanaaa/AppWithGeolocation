@@ -22,4 +22,5 @@ class ServiceMutableLiveData(context: Context) : MutableLiveData<Location>() {
             return instance
         }
     }
+
 }

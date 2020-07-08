@@ -1,7 +1,5 @@
 package com.banana.appwithgeolocation.utils
 
-import android.Manifest
-
 class Constants {
     companion object {
         const val SERVICE_START = "com.appwithgeolocation.service.START"

@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
@@ -18,6 +19,7 @@ import com.banana.appwithgeolocation.R
 import com.banana.appwithgeolocation.model.entity.Point
 import com.banana.appwithgeolocation.utils.Constants
 import com.banana.appwithgeolocation.utils.createSimpleDialog
+import com.banana.appwithgeolocation.utils.isServiceRunning
 import com.banana.appwithgeolocation.utils.showToast
 import com.banana.appwithgeolocation.viewmodel.MainViewModel
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -39,11 +41,13 @@ class FragmentMap : Fragment(), OnMapReadyCallback {
 
     private lateinit var mViewModel: MainViewModel
     private lateinit var mMap: GoogleMap
-    private var mSelectedPointListener = Observer<String> { if (it != "") drawMarkers(it, true) }
+
+    private var mSelectedPointListener = Observer<String> {
+        if (it != "") drawMarkers(it, true)
+    }
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
         return inflater.inflate(R.layout.fragment_map, container, false)
     }
@@ -52,13 +56,15 @@ class FragmentMap : Fragment(), OnMapReadyCallback {
         super.onViewCreated(view, savedInstanceState)
         mViewModel = ViewModelProvider(requireActivity()).get(MainViewModel::class.java)
 
-        (childFragmentManager.findFragmentById(R.id.map) as SupportMapFragment).apply {
+        (childFragmentManager.findFragmentById(R.id.map_view) as SupportMapFragment).apply {
             getMapAsync(this@FragmentMap)
         }
 
-        buttonAddPosition.setOnClickListener {
-            if (checkDistance()) showDialog()
-            else requireActivity().showToast("Рядом уже есть точка")
+        button_add_point.setOnClickListener {
+            if (requireContext().isServiceRunning()) {
+                if (checkDistance()) showDialog(mViewModel.location)
+                else requireContext().showToast(getString(R.string.toast_point_nearby))
+            } else requireContext().showToast(getString(R.string.toast_enable_service), Toast.LENGTH_LONG)
         }
     }
 
@@ -77,11 +83,13 @@ class FragmentMap : Fragment(), OnMapReadyCallback {
             uiSettings.isMapToolbarEnabled = false
 
             setOnMapLongClickListener {
-                if (checkDistance()) showDialog(Location("").apply {
+                Location("").apply {
                     latitude = it.latitude
                     longitude = it.longitude
-                })
-                else requireActivity().showToast("Рядом уже есть точка")
+                }.apply {
+                    if (checkDistance(this)) showDialog(this)
+                    else requireContext().showToast(getString(R.string.toast_point_nearby))
+                }
             }
         }
 
@@ -104,21 +112,21 @@ class FragmentMap : Fragment(), OnMapReadyCallback {
     private fun drawMarkers(name: String, fromNotification: Boolean = false) {
         mViewModel.points.observe(this@FragmentMap, Observer { list ->
             mMap.clear()
-            if (name != "") {
-                list.forEach {
-                    if (it.name == name) {
-                        addMarker(it, true)
-                        moveCameraOnPoint(it)
-                    } else addMarker(it)
+            when (name != "") {
+                true -> {
+                    list.forEach {
+                        if (it.name == name) {
+                            addMarker(it, true)
+                            moveCameraOnLocation(it.latitude, it.longitude)
+                        } else addMarker(it)
+                    }
+                    mViewModel.selectMarker("")
                 }
-                mViewModel.selectMarker("")
-            }
-            else {
-                list.forEach { addMarker(it) }
-                if (mViewModel.location.hasAltitude()) {
-                    moveOnLastLocation()
-                } else {
-                    if (list.isNotEmpty()) moveCameraOnLocation(list.last().latitude, list.last().longitude)
+                false -> {
+                    list.forEach { addMarker(it) }
+                    if (mViewModel.location.hasAltitude()) moveCameraOnLocation()
+                    else if (list.isNotEmpty())
+                        moveCameraOnLocation(list.last().latitude, list.last().longitude)
                 }
             }
         })
@@ -136,102 +144,49 @@ class FragmentMap : Fragment(), OnMapReadyCallback {
         ))
     }
 
-    private fun checkDistance() = mViewModel.checkDistance(PreferenceManager
+    private fun checkDistance(location: Location? = null): Boolean {
+        val accuracy = PreferenceManager
             .getDefaultSharedPreferences(requireActivity())
-            .getInt(Constants.SETTINGS_KEY_ACCURACY, 100))
-
-    @SuppressLint("InflateParams")
-    private fun showDialog() {
-        val dialogLayout = layoutInflater.inflate(R.layout.dialog_new_point, null)
-        val name = dialogLayout.name_edittext.text
-        val layout = dialogLayout.input_layout
-
-        dialogLayout.apply {
-            latitude_textview.text = getString(R.string.dialog_new_point_latitude,
-                    mViewModel.location.latitude)
-            longitude_textview.text = getString(R.string.dialog_new_point_longitude,
-                    mViewModel.location.longitude)
-        }
-
-        requireActivity().createSimpleDialog(
-            getString(R.string.dialog_new_point_title),
-            dialogLayout,
-            getString(R.string.ok),
-            getString(R.string.cancel)
-        ).apply {
-            setOnShowListener {
-                getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                    val point = Point(
-                        name.toString(),
-                        mViewModel.location.latitude,
-                        mViewModel.location.longitude
-                    )
-                    when (mViewModel.addPoint(point)) {
-                        MainViewModel.NameValidationResult.TOO_SHORT -> {
-                            layout.error = getString(R.string.error_name_is_short)
-                            requireActivity().showToast(getString(R.string.toast_is_short))
-                        }
-                        MainViewModel.NameValidationResult.TOO_LONG -> {
-                            layout.error = getString(R.string.error_name_is_long)
-                            requireActivity().showToast(getString(R.string.toast_is_long))
-                        }
-                        MainViewModel.NameValidationResult.ALREADY_EXISTS -> {
-                            layout.error = getString(R.string.error_name_is_exist)
-                            requireActivity().showToast(getString(R.string.toast_is_exist))
-                        }
-                        MainViewModel.NameValidationResult.SUCCESS -> {
-                            dismiss()
-                            GlobalScope.launch(Dispatchers.Main) {
-                                moveCameraOnLocation(point.latitude, point.longitude)
-                            }
-                        }
-                    }
-                }
-            }
-            show()
-        }
+            .getInt(Constants.SETTINGS_KEY_ACCURACY, 100)
+        location?.let { return mViewModel.checkDistance(accuracy, it) }
+        return mViewModel.checkDistance(accuracy)
     }
 
     @SuppressLint("InflateParams")
     private fun showDialog(location: Location) {
-        val dialogLayout = layoutInflater.inflate(R.layout.dialog_new_point, null)
-        val name = dialogLayout.name_edittext.text
-        val layout = dialogLayout.input_layout
+        val layout = layoutInflater.inflate(R.layout.dialog_new_point, null)
+        val inputName = layout.text_input_edit_text.text
+        val inputLayout = layout.text_input_layout
 
-        dialogLayout.apply {
-            latitude_textview.text = getString(R.string.dialog_new_point_latitude,
-                location.latitude)
-            longitude_textview.text = getString(R.string.dialog_new_point_longitude,
-                location.longitude)
-        }
+        layout.latitude_text_view.text = getString(R.string.dialog_new_point_latitude,
+            location.latitude)
+        layout.longitude_text_view.text = getString(R.string.dialog_new_point_longitude,
+            location.longitude)
 
         requireActivity().createSimpleDialog(
             getString(R.string.dialog_new_point_title),
-            dialogLayout,
-            getString(R.string.ok),
-            getString(R.string.cancel)
+            layout,
+            getString(R.string.dialog_button_positive_add),
+            getString(R.string.dialog_button_negative_cancel)
         ).apply {
             setOnShowListener {
                 getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                    val point = Point(name.toString(), location.latitude, location.longitude)
-                    when (mViewModel.addPoint(point)) {
-                        MainViewModel.NameValidationResult.TOO_SHORT -> {
-                            layout.error = getString(R.string.error_name_is_short)
-                            requireActivity().showToast(getString(R.string.toast_is_short))
-                        }
-                        MainViewModel.NameValidationResult.TOO_LONG -> {
-                            layout.error = getString(R.string.error_name_is_long)
-                            requireActivity().showToast(getString(R.string.toast_is_long))
-                        }
-                        MainViewModel.NameValidationResult.ALREADY_EXISTS -> {
-                            layout.error = getString(R.string.error_name_is_exist)
-                            requireActivity().showToast(getString(R.string.toast_is_exist))
-                        }
+                    val point = Point(
+                        inputName.toString(), location.latitude, location.longitude
+                    )
+                    inputLayout.error = when (mViewModel.addPoint(point)) {
+                        MainViewModel.NameValidationResult.TOO_SHORT ->
+                            getString(R.string.error_name_is_short)
+                        MainViewModel.NameValidationResult.TOO_LONG ->
+                            getString(R.string.error_name_is_long)
+                        MainViewModel.NameValidationResult.ALREADY_EXISTS ->
+                            getString(R.string.error_name_is_taken)
                         MainViewModel.NameValidationResult.SUCCESS -> {
                             dismiss()
                             GlobalScope.launch(Dispatchers.Main) {
                                 moveCameraOnLocation(point.latitude, point.longitude)
                             }
+                            ""
                         }
                     }
                 }
@@ -240,11 +195,10 @@ class FragmentMap : Fragment(), OnMapReadyCallback {
         }
     }
 
-    private fun moveCameraOnPoint(point: Point) {
-        moveCameraOnLocation(point.latitude, point.longitude)
-    }
-
-    private fun moveCameraOnLocation(latitude: Double, longitude: Double) {
+    private fun moveCameraOnLocation(
+        latitude: Double = mViewModel.location.latitude,
+        longitude: Double = mViewModel.location.longitude
+    ) {
         mMap.moveCamera(CameraUpdateFactory
                 .newCameraPosition(CameraPosition
                         .Builder()
@@ -255,9 +209,4 @@ class FragmentMap : Fragment(), OnMapReadyCallback {
         )
     }
 
-    private fun moveOnLastLocation() {
-        activity?.let {
-            moveCameraOnLocation(mViewModel.location.latitude, mViewModel.location.longitude)
-        }
-    }
 }

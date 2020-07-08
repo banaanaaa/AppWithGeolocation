@@ -1,5 +1,6 @@
 package com.banana.appwithgeolocation.utils
 
+import android.app.ActivityManager
 import android.app.AlertDialog
 import android.content.Context
 import android.content.pm.PackageManager
@@ -9,12 +10,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
-import androidx.core.view.marginBottom
-import androidx.core.view.marginLeft
-import androidx.core.view.marginTop
-import androidx.core.view.setMargins
 import com.banana.appwithgeolocation.R
-import java.util.jar.Attributes
+import com.banana.appwithgeolocation.service.LocationService
 
 fun Context.showToast(text: String, duration: Int = Toast.LENGTH_SHORT) {
     Toast.makeText(this, text, duration).show()
@@ -44,7 +41,7 @@ fun Context.createClearLayout(description: String): LinearLayout = LinearLayout(
         this@createClearLayout,
         null,
         0,
-        R.style.TextViewStyleA
+        R.style.TextViewStyle
     ).apply {
         layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -59,5 +56,16 @@ fun Context.createClearLayout(description: String): LinearLayout = LinearLayout(
         }
         text = description
     })
+}
+
+fun Context.isServiceRunning(): Boolean {
+    (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).apply {
+        for (service in this.getRunningServices(Int.MAX_VALUE)) {
+            if (LocationService::class.java.name == service.service.className) {
+                if (service.foreground) return true
+            }
+        }
+    }
+    return false
 }
 

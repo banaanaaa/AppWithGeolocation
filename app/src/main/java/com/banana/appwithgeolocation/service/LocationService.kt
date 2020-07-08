@@ -1,13 +1,14 @@
 package com.banana.appwithgeolocation.service
 
-import android.annotation.SuppressLint
+import android.Manifest
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.location.Location
 import android.os.*
-import android.util.Log
+import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.*
 import androidx.preference.PreferenceManager
@@ -17,6 +18,7 @@ import com.banana.appwithgeolocation.model.storage.Repository
 import com.banana.appwithgeolocation.utils.Constants
 import com.banana.appwithgeolocation.view.MainActivity
 import com.google.android.gms.location.*
+import com.google.android.gms.location.LocationServices.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
@@ -24,19 +26,17 @@ import kotlinx.coroutines.launch
 
 class LocationService : Service() {
 
-    private lateinit var repository: Repository
     private lateinit var points: LiveData<List<com.banana.appwithgeolocation.model.entity.Point>>
-
+    private var mMutableLiveData = ServiceMutableLiveData.getInstance(this)
     private var mPoints = HashMap<Int, com.banana.appwithgeolocation.model.entity.Point>()
-    private var mPointsListener = Observer<List<com.banana.appwithgeolocation.model.entity.Point>> { list ->
+    private var mPointsListener = Observer<List<com.banana.appwithgeolocation.model.entity.Point>> {
         mPoints.clear()
-        list?.forEach { mPoints[it.id] = it }
+        it.forEach { point -> mPoints[point.id] = point }
     }
 
-    private var mMutableLiveData = ServiceMutableLiveData.getInstance(this)
-
-    private var mAccuracy: Int = 100
-    private var mSampleRate: Long = 60000
+    private var mAccuracy = 100
+    private var mSampleRate = 60000L
+    private var mName = ""
 
     private val mLocationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
@@ -45,10 +45,12 @@ class LocationService : Service() {
                 delay(1000)
                 locationResult.lastLocation?.let { location ->
                     checkDistance(location).let { name ->
-                        if (name != "") showNotification(name)
+                        if (name != "" && name != mName) {
+                            mName = name
+                            showNotification(NotificationManager.IMPORTANCE_DEFAULT)
+                        }
                     }
                     mMutableLiveData?.value = location
-                    Log.d("LocationService", "$location")
                 }
             }
         }
@@ -57,77 +59,66 @@ class LocationService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent?.let {
             when (it.action) {
-                Constants.SERVICE_START -> startLocationService()
-                Constants.SERVICE_STOP  -> stopLocationService()
-                "StopFromButton" -> stopLocationServiceFromButton()
+                Constants.SERVICE_START -> startService()
+                Constants.SERVICE_STOP  -> stopService()
+                Constants.NOTIFICATION_ACTION_STOP_SERVICE -> {
+                    changeSwitchPreferenceToFalse()
+                    stopService()
+                }
             }
         }
-        return Service.START_STICKY
+        return START_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
     }
 
-    private fun stopLocationServiceFromButton() {
-        PreferenceManager.getDefaultSharedPreferences(this)
-            .edit()
-            .putBoolean(Constants.SETTINGS_KEY_SWITCH, false)
-            .apply()
-
-        points.removeObserver(mPointsListener)
-        LocationServices.getFusedLocationProviderClient(this).removeLocationUpdates(mLocationCallback)
-        stopForeground(true)
-        stopSelf()
-    }
-
-    private fun setPointsListener() {
-        repository = Repository(PointRoomDatabase.getDatabase(this).pointDao())
-        points = repository.getPoints()
-        Handler(Looper.getMainLooper()).post {
-            points.observeForever(mPointsListener)
+    private fun startService() {
+        Repository(PointRoomDatabase.getDatabase(this).pointDao()).apply {
+            points = this.getPoints().apply {
+                Handler(Looper.getMainLooper()).post { observeForever(mPointsListener) }
+            }
         }
-    }
 
-    private fun startLocationService() {
-        setPointsListener()
-        updateSettings()
-        setLocationRequest()
-        showForegroundNotification()
-    }
-
-    private fun stopLocationService() {
-        points.removeObserver(mPointsListener)
-        LocationServices.getFusedLocationProviderClient(this).removeLocationUpdates(mLocationCallback)
-        stopForeground(true)
-        stopSelf()
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun setLocationRequest() {
-        LocationServices.getFusedLocationProviderClient(this).removeLocationUpdates(mLocationCallback)
-
-        LocationServices.getFusedLocationProviderClient(this).requestLocationUpdates(
-            LocationRequest().apply {
-                interval = mSampleRate
-                fastestInterval = mSampleRate / 6
-                priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-            },
-            mLocationCallback,
-            Looper.getMainLooper()
-        )
-    }
-
-    private fun updateSettings() {
         PreferenceManager.getDefaultSharedPreferences(this).apply {
             mAccuracy = getInt(Constants.SETTINGS_KEY_ACCURACY, 100)
             mSampleRate = getInt(Constants.SETTINGS_KEY_SAMPLE_RATE, 1).toLong() * 60000
         }
+
+        if (ActivityCompat.checkSelfPermission( this, Manifest.permission.ACCESS_FINE_LOCATION)
+            == PackageManager.PERMISSION_GRANTED
+            && ActivityCompat.checkSelfPermission( this, Manifest.permission.ACCESS_COARSE_LOCATION)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
+            getFusedLocationProviderClient(this).requestLocationUpdates(
+                LocationRequest().apply {
+                    interval = mSampleRate
+                    fastestInterval = mSampleRate / 6
+                    priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+                },
+                mLocationCallback,
+                Looper.getMainLooper()
+            )
+            showNotification(NotificationManager.IMPORTANCE_HIGH, showInForeground = true, autoCancel = false)
+        }
+    }
+
+    private fun stopService() {
+        points.removeObserver(mPointsListener)
+        getFusedLocationProviderClient(this).removeLocationUpdates(mLocationCallback)
+        stopForeground(true)
+        stopSelf()
+    }
+
+    private fun changeSwitchPreferenceToFalse() {
+        PreferenceManager.getDefaultSharedPreferences(this)
+                .edit().putBoolean(Constants.SETTINGS_KEY_SWITCH, false).apply()
     }
 
     private fun checkDistance(location: Location): String {
         HashMap<String, Float>().let { map ->
-            mPoints.forEach {point ->
+            mPoints.forEach { point ->
                 Location("").apply {
                     latitude = point.value.latitude
                     longitude = point.value.longitude
@@ -137,119 +128,82 @@ class LocationService : Service() {
                     }
                 }
             }
-            return if (map.isNotEmpty()) {
-                val min =  map.minBy { (_, distance) -> distance }
-                min?.key as String
-            } else ""
+            return if (map.isNotEmpty()) map.minBy { (_, distance) -> distance }?.key as String
+                   else ""
         }
     }
 
-    private fun showForegroundNotification() {
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE)
-                as NotificationManager
+    private fun showNotification(
+        importance: Int, showInForeground: Boolean = false, autoCancel: Boolean = true
+    ) {
+        val channelId = if (showInForeground) Constants.NOTIFICATION_CHANNEL_ID_FOREGROUND
+                        else Constants.NOTIFICATION_CHANNEL_ID_SHORT_NOTIFY
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                createChannel(
-                    notificationManager,
-                    Constants.NOTIFICATION_CHANNEL_ID_FOREGROUND,
-                    "This channel for Foreground Notify of Location Service",
-                    NotificationManager.IMPORTANCE_HIGH
-                )
-
-        val pendingIntent = PendingIntent.getActivity(
-                    applicationContext,
-                    0,
-                    Intent(this, MainActivity::class.java).apply {
-                        putExtra(Constants.NOTIFICATION_ACTION_TAP_ON_FOREGROUND, true)
-                    },
-                    PendingIntent.FLAG_UPDATE_CURRENT
-                )
-
-        val intentButton = Intent(this, LocationService::class.java)
-                .apply {
-                    action = "StopFromButton"
-                }
-
-        val builder = NotificationCompat.Builder(
-            this,
-            Constants.NOTIFICATION_CHANNEL_ID_FOREGROUND
-        ).apply {
-            setSmallIcon(R.mipmap.ic_launcher)
-            setContentTitle(getString(R.string.app_name))
-            setContentText("Location Service is worked")
-            setContentIntent(pendingIntent)
-            setDefaults(NotificationCompat.DEFAULT_ALL)
-            setShowWhen(true)
-            setAutoCancel(false)
-
-            priority = NotificationCompat.PRIORITY_MAX
-
-            addAction(NotificationCompat.Action(
-                    android.R.drawable.ic_media_pause,
-                    "Stop service",
-                    PendingIntent.getService(applicationContext, 0, intentButton, 0)
-                )
-            )
-        }
-
-        startForeground(Constants.NOTIFICATION_CHANNEL_ID_FOREGROUND.hashCode(), builder.build())
-    }
-
-
-    private fun showNotification(name: String) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE)
                 as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             createChannel(
                 notificationManager,
-                Constants.NOTIFICATION_CHANNEL_ID_SHORT_NOTIFY,
-                "This channel for Short Notify of Location Service",
-                NotificationManager.IMPORTANCE_HIGH
+                channelId,
+                if (showInForeground) getString(R.string.service_channel_desc_foreground)
+                else getString(R.string.service_channel_desc_short_notify),
+                importance
             )
 
         val pendingIntent = PendingIntent.getActivity(
             applicationContext,
-            1,
+            if (showInForeground) 14323
+            else 32857,
             Intent(this, MainActivity::class.java).apply {
-                putExtra(Constants.NOTIFICATION_ACTION_TAP_ON_SHORT_NOTIFY, name)
+                if (showInForeground) {
+                    putExtra(Constants.NOTIFICATION_ACTION_TAP_ON_FOREGROUND, true)
+                } else {
+                    putExtra(Constants.NOTIFICATION_ACTION_TAP_ON_SHORT_NOTIFY, mName)
+                }
             },
             PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val builder = NotificationCompat.Builder(
-            this,
-            Constants.NOTIFICATION_CHANNEL_ID_SHORT_NOTIFY
-        ).apply {
+        NotificationCompat.Builder(this, channelId).apply {
             setSmallIcon(R.mipmap.ic_launcher)
-            setContentTitle(getString(R.string.app_name))
-            setDefaults(NotificationCompat.DEFAULT_ALL)
-            setContentText("You are located near '$name'")
+//            setContentTitle(getString(R.string.app_name))
+            setContentText(
+                if (showInForeground) getString(R.string.notification_foreground_text)
+                else getString(R.string.notification_short_notify_text, mName)
+            )
             setContentIntent(pendingIntent)
             setShowWhen(true)
-            setAutoCancel(true)
+            setAutoCancel(autoCancel)
 
             priority = NotificationCompat.PRIORITY_MAX
-        }
 
-        notificationManager.notify(Constants.NOTIFICATION_CHANNEL_ID_SHORT_NOTIFY.hashCode(), builder.build())
+            if (showInForeground) {
+                addAction(NotificationCompat.Action(
+                    android.R.drawable.ic_media_pause,
+                    getString(R.string.notification_button_stop_service),
+                    PendingIntent.getService(
+                        applicationContext,
+                        34534,
+                        Intent(this@LocationService, LocationService::class.java)
+                                .apply { action = Constants.NOTIFICATION_ACTION_STOP_SERVICE },
+                        0
+                    )
+                ))
+                startForeground(channelId.hashCode(), build())
+            } else notificationManager.notify(channelId.hashCode(), build())
+        }
     }
 
     private fun createChannel(
-        manager: NotificationManager,
-        channelId: String,
-        description: String,
-        importance: Int
+        manager: NotificationManager, channelId: String, description: String, importance: Int
     ) {
-        NotificationChannel(
-            channelId,
-            "LocationService: $channelId",
-            importance
-        ).apply {
+        NotificationChannel(channelId, "LocationService: $channelId", importance).apply {
             setDescription(description)
             enableLights(true)
             lightColor = Color.BLUE
             manager.createNotificationChannel(this)
         }
     }
+
 }

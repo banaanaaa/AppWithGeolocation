@@ -4,7 +4,8 @@ import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.os.Bundle
 import android.view.*
-import android.widget.LinearLayout
+import android.widget.Toast
+import androidx.core.view.isNotEmpty
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
@@ -25,8 +26,7 @@ class FragmentList : Fragment() {
     private lateinit var mViewModel: MainViewModel
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
         setHasOptionsMenu(true)
         return inflater.inflate(R.layout.fragment_list, container, false)
@@ -38,7 +38,7 @@ class FragmentList : Fragment() {
 
         val adapter = createPointListAdapter()
 
-        recyclerview?.let {
+        recycler_view?.let {
             it.adapter = adapter
             it.layoutManager = LinearLayoutManager(context)
         }
@@ -48,91 +48,77 @@ class FragmentList : Fragment() {
         })
     }
 
-    private fun createPointListAdapter() = PointListAdapter(
-        mViewModel.points, object : Listener {
-            override fun click(point: Point) {
-                mViewModel.selectMarker(point.name)
-                findNavController().navigate(R.id.map_dest)
-            }
-
-            override fun rename(point: Point) {
-                showDialog(point)
-            }
-
-            override fun delete(point: Point) {
-                showSureDialog().apply {
-                    setMessage(getString(R.string.delete_point))
-                    setOnShowListener {
-                        getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                            mViewModel.deletePoint(point)
-                            dismiss()
-                        }
-                    }
-                    show()
-                }
-            }
-        }
-    )
-
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        inflater.inflate(R.menu.list_menu, menu)
         super.onCreateOptionsMenu(menu, inflater)
+        inflater.inflate(R.menu.menu_option_list, menu)
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == R.id.nav_delete) {
-            showSureDialog().apply {
-                setMessage(getString(R.string.delete_points))
-                setOnShowListener {
-                    getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                        mViewModel.deletePoints()
-                        dismiss()
-                    }
-                }
-                show()
-            }
+            if (recycler_view.isNotEmpty()) showDialog()
+            else requireContext().showToast(getString(R.string.toast_list_is_empty), Toast.LENGTH_LONG)
         }
         return super.onOptionsItemSelected(item)
     }
 
-    @SuppressLint("InflateParams")
-    fun showSureDialog(): AlertDialog {
-        return requireActivity().createSimpleDialog(
-            getString(R.string.are_u_sure),
-            requireContext().createClearLayout("Hello"),
-            getString(R.string.yes),
-            getString(R.string.no)
-        )
-    }
+    private fun createPointListAdapter() = PointListAdapter(
+        mViewModel.points, object : Listener {
+            override fun click(point: Point) {
+                mViewModel.selectMarker(point.name)
+                findNavController().navigate(R.id.destination_map)
+            }
 
-    @SuppressLint("InflateParams")
-    fun showDialog(point: Point) {
-        val dialogLayout = layoutInflater.inflate(R.layout.dialog_rename_point, null)
-        val name = dialogLayout.name_edittext.text
-        val layout = dialogLayout.input_layout
+            override fun rename(point: Point) { showDialog(point) }
 
-        requireActivity().createSimpleDialog(
-            getString(R.string.dialog_rename_point_tittle),
-            dialogLayout,
-            getString(R.string.ok),
-            getString(R.string.cancel)
+            override fun delete(point: Point) { showDialog(deleteAll = false, point = point) }
+        }
+    )
+
+    private fun showDialog(deleteAll: Boolean = true, point: Point? = null) {
+        requireContext().createSimpleDialog(
+            getString(R.string.dialog_delete_title),
+            requireContext().createClearLayout(
+                    if (deleteAll) getString(R.string.dialog_delete_all_desc)
+                    else getString(R.string.dialog_delete_one_desc)),
+            getString(R.string.dialog_button_positive_yes),
+            getString(R.string.dialog_button_negative_cancel)
         ).apply {
             setOnShowListener {
                 getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                    when (mViewModel.renamePoint(point, name.toString())) {
-                        MainViewModel.NameValidationResult.TOO_SHORT -> {
-                            layout.error = getString(R.string.error_name_is_short)
-                            requireActivity().showToast(getString(R.string.toast_is_short))
+                    if (deleteAll) mViewModel.deletePoints()
+                    else point?.let { mViewModel.deletePoint(it) }
+                    dismiss()
+                }
+            }
+            show()
+        }
+    }
+
+    @SuppressLint("InflateParams")
+    private fun showDialog(point: Point) {
+        val layout = layoutInflater.inflate(R.layout.dialog_rename_point, null)
+        val inputName = layout.text_input_edit_text.text
+        val inputLayout = layout.text_input_layout
+
+        requireContext().createSimpleDialog(
+            getString(R.string.dialog_rename_title),
+            layout,
+            getString(R.string.dialog_button_positive_rename),
+            getString(R.string.dialog_button_negative_cancel)
+        ).apply {
+            setOnShowListener {
+                getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                    inputLayout.error = when (mViewModel.renamePoint(point, inputName.toString())) {
+                        MainViewModel.NameValidationResult.TOO_SHORT ->
+                            getString(R.string.error_name_is_short)
+                        MainViewModel.NameValidationResult.TOO_LONG ->
+                            getString(R.string.error_name_is_long)
+                        MainViewModel.NameValidationResult.ALREADY_EXISTS ->
+                            getString(R.string.error_name_is_taken)
+                        MainViewModel.NameValidationResult.SUCCESS -> {
+                            dismiss()
+                            ""
                         }
-                        MainViewModel.NameValidationResult.TOO_LONG -> {
-                            layout.error = getString(R.string.error_name_is_long)
-                            requireActivity().showToast(getString(R.string.toast_is_long))
-                        }
-                        MainViewModel.NameValidationResult.ALREADY_EXISTS -> {
-                            layout.error = getString(R.string.error_name_is_exist)
-                            requireActivity().showToast(getString(R.string.toast_is_exist))
-                        }
-                        MainViewModel.NameValidationResult.SUCCESS -> dismiss()
                     }
                 }
             }
@@ -146,4 +132,5 @@ class FragmentList : Fragment() {
         fun rename(point: Point)
         fun delete(point: Point)
     }
+
 }

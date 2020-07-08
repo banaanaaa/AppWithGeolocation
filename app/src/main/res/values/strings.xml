@@ -1,76 +1,93 @@
 <resources>
-
     <string name="app_name">AppWithGeolocation</string>
 
-    <string name="add_new">Add new</string>
-    <string name="button_save">Save</string>
-    <string name="empty_not_saved">Point not saved because it is empty.</string>
 
-    <string name="item_name">Name</string>
-    <string name="item_latitude">Latitude</string>
-    <string name="item_longitude">Longitude</string>
+    <string name="dialog_pref_miss_title">Required permissions are missing</string>
+    <string name="dialog_pref_miss_desc_background_location">If you don\'t provide them, You won\'t
+        receive notifications when you approach the saved \"points\".\n\nGo to settings?</string>
+    <string name="dialog_pref_miss_desc_fine_coarse_location">If you don\'t provide them,
+        the app won\'t get your current location.\n\nGo to settings?</string>
 
-    <string name="button_edit">Edit</string>
-    <string name="button_delete">Delete</string>
 
-    <string name="navigation_list">List</string>
-    <string name="navigation_map">Map</string>
-    <string name="navigation_settings">Settings</string>
+    <string name="dialog_service_off_title">The service is disabled</string>
+    <string name="dialog_service_off_desc">For getting the current location, you should
+        enable it.</string>
 
-    <string name="fab_add_location">Add location</string>
-    <string name="fab_my_location">Show my location</string>
 
     <string name="dialog_new_point_title">Add new point</string>
     <string name="dialog_new_point_name">Name</string>
     <string name="dialog_new_point_latitude">Latitude: %f</string>
     <string name="dialog_new_point_longitude">Longitude: %f</string>
-    <string name="dialog_rename_point_tittle">Enter new name</string>
-    <string name="dialog_rename_point_name">Name</string>
-    <string name="dialog_rename_point_old_name">Old name:</string>
 
-    <string name="title_list">List</string>
-    <string name="title_map">Map</string>
-    <string name="title_settings">Settings</string>
-    <string name="title_edit">Edit</string>
-    <string name="title_clear">Clear</string>
-    <string name="title_clear_all">Clear all</string>
 
-    <!--Settings-->
-    <string name="title_accuracy">Accuracy</string>
-    <string name="title_sample_rate">Sample rate</string>
-    <string name="title_service_switch">Location service</string>
-    <string name="summary_sample">Accuracy of the geolocation tracking service (minutes)</string>
-    <string name="summary_accuracy">Survey frequency of the geolocation tracking service (metres)</string>
-    <string name="summary_service_switchOn">Enable the geolocation service.</string>
-    <string name="summary_service_switchOff">Disable the geolocation service.</string>
+    <string name="dialog_delete_title">Add you sure?</string>
+    <string name="dialog_delete_one_desc">Do you want to delete \"point\"?</string>
+    <string name="dialog_delete_all_desc">Do you want to delete all \"points\"?</string>
 
-    <!-- Preference Titles -->
-    <string name="messages_header">Messages</string>
-    <string name="sync_header">Sync</string>
 
-    <!-- Messages Preferences -->
-    <string name="signature_title">Your signature</string>
-    <string name="reply_title">Default reply action</string>
+    <string name="dialog_rename_title">Rename \"point\"</string>
 
-    <string name="checking_repository">There is already a point nearby. Change the settings
-        if you want to put the point here</string>
 
-    <!--Errors-->
+    <string name="service_channel_desc_foreground">This channel for Foreground
+        notify of Location Service</string>
+    <string name="service_channel_desc_short_notify">This channel for Short notify
+        of Location Service</string>
+
+
+    <string name="notification_title">Add new point</string>
+    <string name="notification_foreground_text">Location Service is worked</string>
+    <string name="notification_short_notify_text">You are located near \"%s\"</string>
+
+
+    <string name="notification_button_stop_service">Stop service</string>
+
+
+    <string name="dialog_button_positive_enable">Enable</string>
+    <string name="dialog_button_positive_yes">Yes</string>
+    <string name="dialog_button_positive_add">Add</string>
+    <string name="dialog_button_positive_rename">Rename</string>
+    <string name="dialog_button_negative_cancel">Cancel</string>
+    <string name="dialog_button_negative_no">No</string>
+
+
+    <string name="toast_pref_miss_fine_coarse_location">Grant access to your location</string>
+    <string name="toast_pref_miss_background_location">Grant access to your location in 
+        the background</string>
+    <string name="toast_point_nearby">There is already a \"point\" nearby</string>
+    <string name="toast_enable_service">Enable the service</string>
+    <string name="toast_name_is_short">It must be more than 6 characters long.</string>
+    <string name="toast_name_is_long">It must be less than 25 characters long.</string>
+    <string name="toast_name_is_taken">This name is already taken.</string>
+    <string name="toast_list_is_empty">The list is empty.</string>
+
+
     <string name="error_name_is_short">This name is short.</string>
     <string name="error_name_is_long">This name is long.</string>
-    <string name="error_name_is_exist">This name is already exist.</string>
-    <string name="toast_is_short">It must be more than 6 characters long.</string>
-    <string name="toast_is_long">It must be less than 25 characters long.</string>
-    <string name="toast_is_exist">This name is already taken.</string>
+    <string name="error_name_is_taken">This name is already taken.</string>
 
-    <!--Another-->
-    <string name="are_u_sure">Are you sure?</string>
-    <string name="yes">Yes</string>
-    <string name="no">No</string>
-    <string name="ok">OK</string>
-    <string name="cancel">Cancel</string>
-    <string name="delete_point">Do you want to delete point?</string>
-    <string name="delete_points">Do you want to delete points?</string>
 
+    <string name="menu_button_clear_all">Clear</string>
+    <string name="menu_title_map">Map</string>
+    <string name="menu_title_list">List</string>
+    <string name="menu_title_settings">Settings</string>
+
+
+    <string name="preference_sample_rate_title">Sample rate</string>
+    <string name="preference_sample_rate_summary">Accuracy of the geolocation tracking
+        service (minutes)</string>
+    <string name="preference_accuracy_title">Accuracy</string>
+    <string name="preference_accuracy_summary">Survey frequency of the geolocation
+        tracking service (metres)</string>
+    <string name="preference_location_service_title">Location service</string>
+    <string name="preference_location_service_summary_on">Disable the geolocation service</string>
+    <string name="preference_location_service_summary_off">Enable the geolocation service</string>
+
+
+    <string name="point_item_latitude">Latitude</string>
+    <string name="point_item_longitude">Longitude</string>
+    <string name="point_item_name">Name</string>
+
+
+    <string name="description_floating_button">Tap it, if you want to add the \"point\"</string>
 </resources>
 

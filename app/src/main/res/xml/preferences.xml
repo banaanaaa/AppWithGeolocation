@@ -1,5 +1,7 @@
-<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:android="http://schemas.android.com/apk/res/android" >
+<PreferenceScreen
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:iconSpaceReserved="false" >
 
     <SeekBarPreference
         app:defaultValue="5"
@@ -8,25 +10,27 @@
         android:max="30"
         app:key="com.appwithgeolocation.settings.SAMPLE_RATE"
         app:showSeekBarValue="true"
-        app:title="@string/title_sample_rate"
-        app:summary="@string/summary_sample" />
+        app:title="@string/preference_sample_rate_title"
+        app:summary="@string/preference_sample_rate_summary" />
 
     <SeekBarPreference
         app:defaultValue="100"
         app:iconSpaceReserved="false"
+        app:allowDividerBelow="true"
         app:min="10"
         android:max="500"
         app:key="com.appwithgeolocation.settings.ACCURACY"
         app:showSeekBarValue="true"
-        app:title="@string/title_accuracy"
-        app:summary="@string/summary_accuracy" />
+        app:title="@string/preference_accuracy_title"
+        app:summary="@string/preference_accuracy_summary" />
 
     <SwitchPreference
         app:defaultValue="false"
         app:iconSpaceReserved="false"
+        app:allowDividerAbove="true"
         app:key="com.appwithgeolocation.settings.SERVICE_SWITCH"
-        app:title="@string/title_service_switch"
-        app:summaryOff="@string/summary_service_switchOn"
-        app:summaryOn="@string/summary_service_switchOff" />
+        app:title="@string/preference_location_service_title"
+        app:summaryOff="@string/preference_location_service_summary_off"
+        app:summaryOn="@string/preference_location_service_summary_on" />
 
 </PreferenceScreen>

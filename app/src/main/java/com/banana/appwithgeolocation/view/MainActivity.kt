@@ -2,9 +2,7 @@ package com.banana.appwithgeolocation.view
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.ActivityManager
 import android.app.AlertDialog
-import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
@@ -48,6 +46,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         private const val SHOW_DIALOG_FINE_COARSE_LOCATION = "action.show.location.FINE_COARSE"
         private const val SHOW_DIALOG_BACKGROUND_LOCATION  = "action.show.location.BACKGROUND"
         private const val SHOW_DIALOG_SERVICE_ON           = "action.show.service.ON"
+
+        private const val APP_IS_NOT_FINISHING  = "action.is.FINISHING"
     }
 
     private lateinit var mViewModel: MainViewModel
@@ -55,7 +55,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        setSupportActionBar(toolbar)
+        setSupportActionBar(view_toolbar)
 
         mViewModel = ViewModelProvider(this).get(MainViewModel::class.java)
 
@@ -63,34 +63,34 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             ?.observe(this, Observer<Location> { mViewModel.location = it })
 
         val host: NavHostFragment = supportFragmentManager
-            .findFragmentById(R.id.nav_host_fragment) as NavHostFragment? ?: return
+            .findFragmentById(R.id.view_fragment_container) as NavHostFragment? ?: return
 
-        bottom_nav_view.setupWithNavController(host.navController)
+        view_bottom_navigation.setupWithNavController(host.navController)
 
-        when (isServiceRunning()) {
-            true -> {
-                if (isServiceOnInSetting()) setPreferencesListener()
-                else changeSwitchPreference(true)
-            }
-            false -> {
-                if (isServiceOnInSetting()) changeSwitchPreference(false)
-                else setPreferencesListener()
-            }
-        }
+        if (isServiceRunning() && !isServiceOnInSetting()) changeSwitchPreference(true)
+        else if (!isServiceRunning() && isServiceOnInSetting()) changeSwitchPreference(false)
 
-        if (!checkPermissions(REQUEST_CODE_FINE_COARSE_LOCATION)) return
-        else if (!isServiceRunning()) showDialog(SHOW_DIALOG_SERVICE_ON)
-    }
-
-    private fun setPreferencesListener() {
         PreferenceManager.getDefaultSharedPreferences(this)
             .registerOnSharedPreferenceChangeListener(this)
+
+        if (!checkPermissions(REQUEST_CODE_FINE_COARSE_LOCATION)) return
+        else {
+            intent?.let { intent ->
+                intent.getBooleanExtra(APP_IS_NOT_FINISHING, false).apply {
+                    if (!this && !isServiceRunning()) showDialog(SHOW_DIALOG_SERVICE_ON)
+                    intent.removeExtra(APP_IS_NOT_FINISHING)
+                }
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         intent?.let {
-            it.getBooleanExtra(Constants.NOTIFICATION_ACTION_TAP_ON_FOREGROUND, false).let { value ->
+            it.getBooleanExtra(
+                Constants.NOTIFICATION_ACTION_TAP_ON_FOREGROUND,
+                false
+            ).let { value ->
                 if (value) it.removeExtra(Constants.NOTIFICATION_ACTION_TAP_ON_FOREGROUND)
                 else it.getStringExtra(Constants.NOTIFICATION_ACTION_TAP_ON_SHORT_NOTIFY)?.let { name ->
                     mViewModel.selectMarker(name)
@@ -108,6 +108,11 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             }
             REQUEST_CODE_BACKGROUND_LOCATION -> background()
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (!isFinishing && !isServiceRunning()) intent.putExtra(APP_IS_NOT_FINISHING, true)
     }
 
     private fun background() {
@@ -138,21 +143,24 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         when (showFor) {
             SHOW_DIALOG_FINE_COARSE_LOCATION -> {
                 showDialog(
-                    "Отсутствуют необходимые разрешения", // заменить
-                    "Отсутствуют разрешения для получения текущего местоположения в фоновом режиме. Вы не будете получать уведомления о приближении к сохранённым 'точкам'.\n\nПерейти в настройки?", // заменить
+                    getString(R.string.dialog_pref_miss_title),
+                    getString(R.string.dialog_pref_miss_desc_background_location),
                     showFor)
             }
             SHOW_DIALOG_BACKGROUND_LOCATION -> {
                 showDialog(
-                    "Отсутствуют необходимые разрешения", // заменить
-                    "Отсутствуют разрешения для получения текущего местоположения. Если вы не предоставите их, приложение не будет работать.\n\nПерейти в настройки?",
+                    getString(R.string.dialog_pref_miss_title),
+                    getString(R.string.dialog_pref_miss_desc_fine_coarse_location),
                     showFor)
             }
             SHOW_DIALOG_SERVICE_ON -> {
                 showDialog(
-                    "Сервис выключен", // заменить
-                    "В данный момент выключен сервис для получения текущего местоположения. Без него Вы не будете получать текущее местоположение.\n\nВключить?",  // заменить
-                    showFor)
+                    getString(R.string.dialog_service_off_title),
+                    getString(R.string.dialog_service_off_desc),
+                    showFor,
+                    getString(R.string.dialog_button_positive_enable),
+                    getString(R.string.dialog_button_negative_cancel)
+                )
             }
         }
     }
@@ -160,23 +168,31 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private fun showDialog(
         title: String,
         description: String,
-        showFor: String
+        showFor: String,
+        positiveButtonText: String = getString(R.string.dialog_button_positive_yes),
+        negativeButtonText: String = getString(R.string.dialog_button_negative_no)
     ) {
         createSimpleDialog(
             title,
             createClearLayout(description),
-            getString(R.string.yes),
-            getString(R.string.no)
+            positiveButtonText,
+            negativeButtonText
         ).apply {
             setOnShowListener {
                 getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                     dismiss()
                     when (showFor) {
                         SHOW_DIALOG_FINE_COARSE_LOCATION -> {
-                            showSettings(REQUEST_CODE_FINE_COARSE_LOCATION, "Предоставьте доступ к местоположению")       // заменить
+                            showSettings(
+                                REQUEST_CODE_FINE_COARSE_LOCATION,
+                                getString(R.string.toast_pref_miss_fine_coarse_location)
+                            )
                         }
                         SHOW_DIALOG_BACKGROUND_LOCATION -> {
-                            showSettings(REQUEST_CODE_BACKGROUND_LOCATION, "Предоставьте доступ к местоположению в фоновом режиме")       // заменить
+                            showSettings(
+                                REQUEST_CODE_BACKGROUND_LOCATION,
+                                getString(R.string.toast_pref_miss_background_location)
+                            )
                         }
                         SHOW_DIALOG_SERVICE_ON -> {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -187,15 +203,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                     }
                 }
                 getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener {
-                    when (showFor) {
-                        SHOW_DIALOG_FINE_COARSE_LOCATION -> {
-                            finish()
-                        }
-                        SHOW_DIALOG_BACKGROUND_LOCATION -> {
-                        }
-                        SHOW_DIALOG_SERVICE_ON -> {
-                        }
-                    }
+                    if (showFor == SHOW_DIALOG_FINE_COARSE_LOCATION) finish()
                     dismiss()
                 }
             }
@@ -206,7 +214,10 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     private fun showSettings(requestCode: Int, toastText: String) {
         showToast(toastText, Toast.LENGTH_LONG)
         startActivityForResult(
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")),
+            Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:$packageName")
+            ),
             requestCode
         )
     }
@@ -227,7 +238,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                 }
             } else enableOrDisableService(Constants.SERVICE_START)
         }
-        else if (!isServiceOnInSetting() && isServiceRunning()) enableOrDisableService(Constants.SERVICE_STOP)
+        else if (!isServiceOnInSetting() && isServiceRunning())
+            enableOrDisableService(Constants.SERVICE_STOP)
     }
 
     private fun enableOrDisableService(action: String) {
@@ -235,17 +247,6 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             this.action = action
             startService(this)
         }
-    }
-
-    private fun isServiceRunning(): Boolean {
-        (getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).apply {
-            for (service in this.getRunningServices(Int.MAX_VALUE)) {
-                if (LocationService::class.java.name == service.service.className) {
-                    if (service.foreground) return true
-                }
-            }
-        }
-        return false
     }
 
     private fun isServiceOnInSetting(): Boolean = PreferenceManager
@@ -273,20 +274,21 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
     }
 
     override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
+        requestCode: Int, permissions: Array<String>, grantResults: IntArray
     ) {
         when (requestCode) {
             REQUEST_CODE_FINE_COARSE_LOCATION -> {
                 if (grantResults[0] == PackageManager.PERMISSION_GRANTED
-                    || grantResults[1] == PackageManager.PERMISSION_GRANTED) showDialog(SHOW_DIALOG_SERVICE_ON)
+                    || grantResults[1] == PackageManager.PERMISSION_GRANTED)
+                    showDialog(SHOW_DIALOG_SERVICE_ON)
                 else showDialog(SHOW_DIALOG_FINE_COARSE_LOCATION)
             }
             REQUEST_CODE_BACKGROUND_LOCATION -> {
-                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) changeSwitchPreference(true)
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED)
+                    changeSwitchPreference(true)
                 else showDialog(SHOW_DIALOG_BACKGROUND_LOCATION)
             }
         }
     }
+
 }

@@ -11,8 +11,7 @@ import com.banana.appwithgeolocation.model.entity.Point
 import com.banana.appwithgeolocation.view.FragmentList
 
 class PointListAdapter(
-    private val points: LiveData<List<Point>>,
-    private val listener: FragmentList.Listener
+    private val points: LiveData<List<Point>>, private val listener: FragmentList.Listener
 ) : RecyclerView.Adapter<PointListAdapter.PointViewHolder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = PointViewHolder(
